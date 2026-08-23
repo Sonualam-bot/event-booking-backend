@@ -32,3 +32,21 @@ export class SessionUserNotFoundError extends AppError {
     super("Not authenticated", 401);
   }
 }
+
+export class ForbiddenError extends AppError {
+  constructor(message = "You do not have permission to perform this action") {
+    super(message, 403);
+  }
+}
+
+export class EventNotFoundError extends AppError {
+  constructor() {
+    super("Event not found", 404);
+  }
+}
+
+export class InsufficientTicketsError extends AppError {
+  constructor(available: number) {
+    super(`Only ${available} ticket(s) left for this event`, 409);
+  }
+}
