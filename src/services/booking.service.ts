@@ -1,10 +1,12 @@
 import { Event } from "../models/Event.model";
 import { Booking } from "../models/Booking.model";
+import { User } from "../models/User.model";
 import {
   EventNotFoundError,
   InsufficientTicketsError,
   ForbiddenError,
 } from "../errors";
+import { jobQueue, JobType } from "../jobs/queue";
 
 /**
  * Ticket decrement + booking creation must not let two concurrent
@@ -32,7 +34,16 @@ export async function createBooking(
     throw new InsufficientTicketsError(existing.availableTickets);
   }
 
-  return Booking.create({ event: eventId, customer: customerId, quantity });
+  const booking = await Booking.create({ event: eventId, customer: customerId, quantity });
+
+  const customer = await User.findById(customerId);
+  jobQueue.enqueue(JobType.BOOKING_CONFIRMATION, {
+    customerEmail: customer!.email,
+    eventTitle: event.title,
+    quantity,
+  });
+
+  return booking;
 }
 
 export async function listBookingsForCustomer(customerId: string) {

@@ -2,6 +2,7 @@ import { Event } from "../models/Event.model";
 import { EventNotFoundError, ForbiddenError } from "../errors";
 import { updateEventSchema } from "../validation/event.schema";
 import { z } from "zod";
+import { jobQueue, JobType } from "../jobs/queue";
 
 /**
  * Business logic for events. Ownership (an organizer can only touch
@@ -56,6 +57,11 @@ export async function updateEvent(
 
   Object.assign(event, updates);
   await event.save();
+
+  jobQueue.enqueue(JobType.EVENT_UPDATE_NOTIFICATION, {
+    eventId: event.id,
+    eventTitle: event.title,
+  });
 
   return event;
 }
