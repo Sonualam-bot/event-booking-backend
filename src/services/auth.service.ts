@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { User } from "../models/User.model";
+import { User, UserRole } from "../models/User.model";
 import {
   EmailAlreadyExistsError,
   InvalidCredentialsError,
@@ -16,12 +16,16 @@ import {
 
 const SALT_ROUNDS = 10;
 
-export async function createUser(email: string, password: string) {
+export async function createUser(
+  email: string,
+  password: string,
+  role: UserRole,
+) {
   const existing = await User.findOne({ email });
   if (existing) throw new EmailAlreadyExistsError(email);
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-  return User.create({ email, passwordHash });
+  return User.create({ email, passwordHash, role });
 }
 
 /**
@@ -34,11 +38,11 @@ export async function createUser(email: string, password: string) {
  * function (and its route/controller) if a given project doesn't want
  * guest access.
  */
-export async function createGuestUser() {
+export async function createGuestUser(role: UserRole) {
   const id = crypto.randomUUID();
   const email = `guest-${id}@demo.local`;
   const password = crypto.randomUUID();
-  return createUser(email, password);
+  return createUser(email, password, role);
 }
 
 export async function verifyCredentials(email: string, password: string) {
@@ -52,13 +56,15 @@ export async function verifyCredentials(email: string, password: string) {
 }
 
 /**
- * Payload is just the id on purpose — JWTs are signed, not encrypted, so
- * nothing sensitive belongs in here. Verified by middleware/requireAuth.ts.
+ * role rides along with the id so requireRole (middleware/requireRole.ts)
+ * can gate routes without a DB lookup per request. Signed, not encrypted —
+ * nothing more sensitive than that belongs in here. A role change would
+ * require re-login to take effect, an acceptable trade-off at this scope.
  */
-export function generateToken(userId: string) {
+export function generateToken(userId: string, role: UserRole) {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("JWT_SECRET is not set");
-  return jwt.sign({ sub: userId }, secret, { expiresIn: "7d" });
+  return jwt.sign({ sub: userId, role }, secret, { expiresIn: "7d" });
 }
 
 export async function getUserById(userId: string) {

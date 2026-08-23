@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { z } from "zod";
 import { signupSchema, loginSchema } from "../validation/auth.schema";
 import {
   createUser,
@@ -16,6 +17,9 @@ import { AuthedRequest } from "../middleware/requireAuth";
  */
 
 const COOKIE_NAME = "token";
+const guestSchema = z.object({
+  role: z.enum(["organizer", "customer"]).default("customer"),
+});
 
 function setAuthCookie(res: Response, token: string) {
   res.cookie(COOKIE_NAME, token, {
@@ -27,24 +31,25 @@ function setAuthCookie(res: Response, token: string) {
 }
 
 export const signup = asyncHandler(async (req, res) => {
-  const { email, password } = signupSchema.parse(req.body);
-  const user = await createUser(email, password);
-  setAuthCookie(res, generateToken(user.id));
-  res.status(201).json({ id: user.id, email: user.email });
+  const { email, password, role } = signupSchema.parse(req.body);
+  const user = await createUser(email, password, role);
+  setAuthCookie(res, generateToken(user.id, user.role));
+  res.status(201).json({ id: user.id, email: user.email, role: user.role });
 });
 
-/** No request body — see services/auth.service.ts's createGuestUser() for what it creates. Otherwise identical to signup: issue a cookie, respond with the new user. */
-export const guest = asyncHandler(async (_req, res) => {
-  const user = await createGuestUser();
-  setAuthCookie(res, generateToken(user.id));
-  res.status(201).json({ id: user.id, email: user.email });
+/** Optional { role } body, defaults to "customer" — see services/auth.service.ts's createGuestUser(). Otherwise identical to signup: issue a cookie, respond with the new user. */
+export const guest = asyncHandler(async (req, res) => {
+  const { role } = guestSchema.parse(req.body ?? {});
+  const user = await createGuestUser(role);
+  setAuthCookie(res, generateToken(user.id, user.role));
+  res.status(201).json({ id: user.id, email: user.email, role: user.role });
 });
 
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = loginSchema.parse(req.body);
   const user = await verifyCredentials(email, password);
-  setAuthCookie(res, generateToken(user.id));
-  res.json({ id: user.id, email: user.email });
+  setAuthCookie(res, generateToken(user.id, user.role));
+  res.json({ id: user.id, email: user.email, role: user.role });
 });
 
 export const logout = asyncHandler(async (_req, res) => {
@@ -54,5 +59,5 @@ export const logout = asyncHandler(async (_req, res) => {
 
 export const me = asyncHandler(async (req: AuthedRequest, res: Response) => {
   const user = await getUserById(req.userId!);
-  res.json({ id: user.id, email: user.email });
+  res.json({ id: user.id, email: user.email, role: user.role });
 });
