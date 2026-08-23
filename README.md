@@ -22,6 +22,15 @@ npm run dev            # ts-node-dev, auto-restart, http://localhost:4000
 
 `npm test` runs the vitest suite. `npm run build && npm start` runs the compiled output.
 
+### Running with Docker
+
+```bash
+cp .env.example .env   # fill in MONGODB_URI / JWT_SECRET (needs a real, reachable Mongo — e.g. Atlas)
+docker compose up --build
+```
+
+This builds the image (multi-stage: `npm ci && npm run build` in a builder stage, only the compiled `dist/` + production deps in the runtime stage) and runs it on `http://localhost:4000`, reading config from `.env` via `env_file`. `.dockerignore` keeps `node_modules`, `.env`, and `dist` out of the build context. Note the container talks to whatever `MONGODB_URI` points at — there's no bundled Mongo container, since this project already depends on a real MongoDB instance (Atlas in dev/prod), not a local-only database.
+
 ## Data model
 
 ```
