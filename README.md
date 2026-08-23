@@ -25,11 +25,15 @@ npm run dev            # ts-node-dev, auto-restart, http://localhost:4000
 ### Running with Docker
 
 ```bash
-cp .env.example .env   # fill in MONGODB_URI / JWT_SECRET (needs a real, reachable Mongo — e.g. Atlas)
+cp .env.example .env   # fill in JWT_SECRET; MONGODB_URI can be left as-is
 docker compose up --build
 ```
 
-This builds the image (multi-stage: `npm ci && npm run build` in a builder stage, only the compiled `dist/` + production deps in the runtime stage) and runs it on `http://localhost:4000`, reading config from `.env` via `env_file`. `.dockerignore` keeps `node_modules`, `.env`, and `dist` out of the build context. Note the container talks to whatever `MONGODB_URI` points at — there's no bundled Mongo container, since this project already depends on a real MongoDB instance (Atlas in dev/prod), not a local-only database.
+Fully self-contained — `docker-compose.yml` includes a `mongo` service, and the `api` service's `MONGODB_URI` is set to point at it (`mongodb://mongo:27017/event-booking`), overriding whatever's in `.env`. No Atlas account or external database needed to run this locally; `.env` only needs to supply `JWT_SECRET` (and `CLIENT_ORIGIN`/`NODE_ENV` if you want non-default values). Mongo's data persists in a named volume (`mongo-data`) across restarts, and its host port is mapped to `27018` rather than the default `27017` in case something else on your machine (a local `mongod`) is already using it — the app itself always talks to Mongo over the internal Docker network regardless of that mapping.
+
+The image itself is a multi-stage build: `npm ci && npm run build` runs in a builder stage, and only the compiled `dist/` + production dependencies make it into the runtime stage. `.dockerignore` keeps `node_modules`, `.env`, and `dist` out of the build context.
+
+To point the containerized app at a real MongoDB (Atlas, etc.) instead of the bundled one, remove the `environment:` override on the `api` service in `docker-compose.yml` and put your real `MONGODB_URI` in `.env`.
 
 ## Data model
 
