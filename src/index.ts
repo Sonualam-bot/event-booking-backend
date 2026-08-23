@@ -4,7 +4,10 @@ import dotenv from "dotenv";
 import { connectDB } from "./config/db";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.routes";
+import eventRoutes from "./routes/event.routes";
+import myBookingsRoutes from "./routes/myBookings.routes";
 import { errorHandler } from "./middleware/errorHandler";
+import { registerJobHandlers } from "./jobs";
 
 /**
  * Entry point — wires middleware, mounts routes/*.routes.ts, and starts
@@ -38,6 +41,8 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/events", eventRoutes);
+app.use("/bookings", myBookingsRoutes);
 
 /**
  * Must be mounted after every route it's meant to catch — Express only
@@ -50,6 +55,7 @@ const PORT = process.env.PORT || 4000;
 
 async function main() {
   await connectDB();
+  registerJobHandlers();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
